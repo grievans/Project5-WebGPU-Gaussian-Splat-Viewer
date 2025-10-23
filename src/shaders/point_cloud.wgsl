@@ -35,8 +35,9 @@ fn vs_main(
     let pos = vec4<f32>(a.x, a.y, b.x, 1.);
 
     // TODO: MVP calculations
-    out.position = pos;
-
+    //  TODO model matrix? doesn't seem to be one used here; wouldn't expect one necessary but they do call it "MVP"
+    out.position = camera.proj * camera.view * pos; 
+    
     return out;
 }
 

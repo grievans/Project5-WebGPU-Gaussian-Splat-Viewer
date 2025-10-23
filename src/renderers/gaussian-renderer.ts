@@ -52,16 +52,17 @@ export default function get_renderer(
     },
   });
 
-  const sort_bind_group = device.createBindGroup({
-    label: 'sort',
-    layout: preprocess_pipeline.getBindGroupLayout(2),
-    entries: [
-      { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
-      { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
-      { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
-      { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
-    ],
-  });
+  // TODO UNCOMMENT; removing temporarily for compatibility reasons
+  // const sort_bind_group = device.createBindGroup({
+  //   label: 'sort',
+  //   layout: preprocess_pipeline.getBindGroupLayout(2),
+  //   entries: [
+  //     { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
+  //     { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
+  //     { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
+  //     { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
+  //   ],
+  // });
 
 
   // ===============================================

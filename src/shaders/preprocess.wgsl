@@ -57,6 +57,7 @@ struct Gaussian {
 
 struct Splat {
     //TODO: store information for 2D splat rendering
+    test: f32 // TEMP need at least one member to run properly on the old webGPU version I'm running
 };
 
 //TODO: bind your data here

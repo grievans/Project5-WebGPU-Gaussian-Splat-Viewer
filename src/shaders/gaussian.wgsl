@@ -5,6 +5,7 @@ struct VertexOutput {
 
 struct Splat {
     //TODO: information defined in preprocess compute shader
+    test: f32 // TEMP
 };
 
 @vertex
