@@ -5,7 +5,11 @@ struct VertexOutput {
 
 struct Splat {
     //TODO: information defined in preprocess compute shader
-    test: f32 // TEMP
+    vec2f screenPos, // TODO 16bit instead? in NDC
+    f32 maxRadius,
+    // TODO what do I need here
+    // ^ I think quad size comes from maxRadius (treat like a square in NDC)
+    // also need conic and color info
 };
 
 @vertex

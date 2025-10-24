@@ -52,28 +52,80 @@ export default function get_renderer(
     },
   });
 
-  // TODO UNCOMMENT; removing temporarily for compatibility reasons
-  // const sort_bind_group = device.createBindGroup({
-  //   label: 'sort',
-  //   layout: preprocess_pipeline.getBindGroupLayout(2),
-  //   entries: [
-  //     { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
-  //     { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
-  //     { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
-  //     { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
-  //   ],
-  // });
+  const sort_bind_group = device.createBindGroup({
+    label: 'sort',
+    layout: preprocess_pipeline.getBindGroupLayout(2),
+    entries: [
+      { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
+      { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
+      { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
+      { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
+    ],
+  });
 
 
   // ===============================================
   //    Create Render Pipeline and Bind Groups
   // ===============================================
-  
+
+  // TODO figure out what if any of this I need to change
+  //  ^ different buffer I think? splats rather than Gaussian struct directly?
+  //   or is it meant to be both? I don't totally understand the distinction
+  const render_shader = device.createShaderModule({code: renderWGSL});
+  const render_pipeline = device.createRenderPipeline({
+    label: 'render',
+    layout: 'auto',
+    vertex: {
+      module: render_shader,
+      entryPoint: 'vs_main',
+    },
+    fragment: {
+      module: render_shader,
+      entryPoint: 'fs_main',
+      targets: [{ format: presentation_format }],
+    },
+    primitive: {
+      topology: 'point-list',
+    },
+  });
+
+  const camera_bind_group = device.createBindGroup({
+    label: 'point cloud camera',
+    layout: render_pipeline.getBindGroupLayout(0),
+    entries: [{binding: 0, resource: { buffer: camera_buffer }}],
+  });
+
+  const gaussian_bind_group = device.createBindGroup({
+    label: 'point cloud gaussians',
+    layout: render_pipeline.getBindGroupLayout(1),
+    entries: [
+      {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+    ],
+  });
+
 
   // ===============================================
   //    Command Encoder Functions
   // ===============================================
-  
+  // TODO not sure where this should be done exactly/if this is what's meant to be in this part
+  const render = (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
+    const pass = encoder.beginRenderPass({
+      label: 'point cloud render',
+      colorAttachments: [
+        {
+          view: texture_view,
+          loadOp: 'clear',
+          storeOp: 'store',
+        }
+      ],
+    });
+    pass.setPipeline(render_pipeline);
+    pass.setBindGroup(0, camera_bind_group);
+    pass.setBindGroup(1, gaussian_bind_group);
+
+    pass.draw(pc.num_points);
+    pass.end();
+  };
 
   // ===============================================
   //    Return Render Object
@@ -81,6 +133,7 @@ export default function get_renderer(
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
       sorter.sort(encoder);
+      render(encoder, texture_view);
     },
     camera_buffer,
   };
