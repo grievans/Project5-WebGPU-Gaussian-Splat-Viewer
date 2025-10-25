@@ -36,6 +36,15 @@ export default function get_renderer(
 
   const nulling_data = new Uint32Array([0]);
 
+
+  const splatBuffer = device.createBuffer({
+    label: 'splat data buffer',
+    // TODO size for 16bit
+    size: pc.num_points * 4*9,  // buffer size multiple of 4?
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+    // mappedAtCreation: false,
+  });
+
   // ===============================================
   //    Create Compute Pipeline and Bind Groups
   // ===============================================
@@ -52,17 +61,25 @@ export default function get_renderer(
     },
   });
 
-  const sort_bind_group = device.createBindGroup({
-    label: 'sort',
-    layout: preprocess_pipeline.getBindGroupLayout(2),
-    entries: [
-      { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
-      { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
-      { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
-      { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
-    ],
-  });
+  // const sort_bind_group = device.createBindGroup({
+  //   label: 'sort',
+  //   layout: preprocess_pipeline.getBindGroupLayout(2),
+  //   entries: [
+  //     { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
+  //     { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
+  //     { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
+  //     { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
+  //   ],
+  // });
 
+  // const gaussian_bind_group = device.createBindGroup({
+  //   label: 'point cloud gaussians',
+  //   layout: preprocess_pipeline.getBindGroupLayout(1),
+  //   entries: [
+  //     {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+  //   ],
+  // });
+  // TODO need to invoke preprocess pipeline I think still?
 
   // ===============================================
   //    Create Render Pipeline and Bind Groups
@@ -73,7 +90,7 @@ export default function get_renderer(
   //   or is it meant to be both? I don't totally understand the distinction
   const render_shader = device.createShaderModule({code: renderWGSL});
   const render_pipeline = device.createRenderPipeline({
-    label: 'render',
+    label: 'gaussian render',
     layout: 'auto',
     vertex: {
       module: render_shader,
@@ -84,33 +101,65 @@ export default function get_renderer(
       entryPoint: 'fs_main',
       targets: [{ format: presentation_format }],
     },
-    primitive: {
-      topology: 'point-list',
-    },
+    // primitive: {
+    //   topology: 'point-list',
+    // },
   });
 
   const camera_bind_group = device.createBindGroup({
-    label: 'point cloud camera',
-    layout: render_pipeline.getBindGroupLayout(0),
-    entries: [{binding: 0, resource: { buffer: camera_buffer }}],
-  });
-
-  const gaussian_bind_group = device.createBindGroup({
-    label: 'point cloud gaussians',
-    layout: render_pipeline.getBindGroupLayout(1),
+    label: 'gaussian splat camera',
+    layout: preprocess_pipeline.getBindGroupLayout(0),
     entries: [
-      {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+      {binding: 0, resource: { buffer: camera_buffer }}
     ],
   });
-
+  
+  const gaussian_bind_group = device.createBindGroup({
+    label: 'gaussian splat compute bind group',
+    layout: preprocess_pipeline.getBindGroupLayout(1),
+    entries: [
+      {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
+      {binding: 1, resource: { buffer: splatBuffer }},
+    ],
+  });
+  
+  // const splatBuffer // TODO
+  const splat_bind_group = device.createBindGroup({
+    label: 'splat bind group',
+    layout: render_pipeline.getBindGroupLayout(0),
+    entries: [
+      {binding: 0, resource: {buffer: splatBuffer}}
+    ],
+  });
 
   // ===============================================
   //    Command Encoder Functions
   // ===============================================
   // TODO not sure where this should be done exactly/if this is what's meant to be in this part
+  const preprocess = (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
+    const pass = encoder.beginComputePass({
+      label: 'gaussian splat preprocess',
+      // colorAttachments: [
+      //   {
+      //     view: texture_view,
+      //     loadOp: 'clear',
+      //     storeOp: 'store',
+      //   }
+      // ],
+    });
+    pass.setPipeline(preprocess_pipeline);
+    pass.setBindGroup(0, camera_bind_group);
+    pass.setBindGroup(1, gaussian_bind_group);
+    // pass.setBindGroup(2, sort_bind_group);
+
+    // pass.draw(pc.num_points);
+    pass.dispatchWorkgroups(pc.num_points / C.histogram_wg_size);
+    // TODO make sure dispatch is done right
+    pass.end();
+  };
   const render = (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
     const pass = encoder.beginRenderPass({
-      label: 'point cloud render',
+      label: 'splat render',
       colorAttachments: [
         {
           view: texture_view,
@@ -120,10 +169,14 @@ export default function get_renderer(
       ],
     });
     pass.setPipeline(render_pipeline);
-    pass.setBindGroup(0, camera_bind_group);
-    pass.setBindGroup(1, gaussian_bind_group);
-
-    pass.draw(pc.num_points);
+    // pass.setBindGroup(0, camera_bind_group);
+    pass.setBindGroup(0, splat_bind_group);
+    
+    // TODO use drawIndirect? not sure if that's what they mean <------
+    // pass.draw(6, 5); 
+    pass.draw(6, pc.num_points); 
+    // pass.draw(pc.num_points); 
+    
     pass.end();
   };
 
@@ -132,7 +185,8 @@ export default function get_renderer(
   // ===============================================
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
-      sorter.sort(encoder);
+      preprocess(encoder, texture_view); // TODO is this the right order?
+      // sorter.sort(encoder); // TODO reenable
       render(encoder, texture_view);
     },
     camera_buffer,
