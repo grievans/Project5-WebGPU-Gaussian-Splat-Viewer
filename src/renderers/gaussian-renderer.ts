@@ -21,6 +21,7 @@ const createBuffer = (
   return buffer;
 };
 
+
 export default function get_renderer(
   pc: PointCloud,
   device: GPUDevice,
@@ -45,6 +46,11 @@ export default function get_renderer(
     // mappedAtCreation: false,
   });
 
+  // TODO
+  // const indirectBuffer = device.createBuffer({
+
+  // });
+
   // ===============================================
   //    Create Compute Pipeline and Bind Groups
   // ===============================================
@@ -60,17 +66,19 @@ export default function get_renderer(
       },
     },
   });
+  // let test1 = preprocess_pipeline.getBindGroupLayout(2);
+  // console.log(test1);
 
-  // const sort_bind_group = device.createBindGroup({
-  //   label: 'sort',
-  //   layout: preprocess_pipeline.getBindGroupLayout(2),
-  //   entries: [
-  //     { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
-  //     { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
-  //     { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
-  //     { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
-  //   ],
-  // });
+  const sort_bind_group = device.createBindGroup({
+    label: 'sort gaussian preprocess bind group',
+    layout: preprocess_pipeline.getBindGroupLayout(2),
+    entries: [
+      { binding: 0, resource: { buffer: sorter.sort_info_buffer } },
+      { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_depths_buffer } },
+      { binding: 2, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
+      { binding: 3, resource: { buffer: sorter.sort_dispatch_indirect_buffer } },
+    ],
+  });
 
   // const gaussian_bind_group = device.createBindGroup({
   //   label: 'point cloud gaussians',
@@ -150,7 +158,7 @@ export default function get_renderer(
     pass.setPipeline(preprocess_pipeline);
     pass.setBindGroup(0, camera_bind_group);
     pass.setBindGroup(1, gaussian_bind_group);
-    // pass.setBindGroup(2, sort_bind_group);
+    pass.setBindGroup(2, sort_bind_group);
 
     // pass.draw(pc.num_points);
     pass.dispatchWorkgroups(pc.num_points / C.histogram_wg_size);
@@ -172,6 +180,7 @@ export default function get_renderer(
     // pass.setBindGroup(0, camera_bind_group);
     pass.setBindGroup(0, splat_bind_group);
     
+    // const uint32 = new Uint32Array(); // TODO figure out indirect
     // TODO use drawIndirect? not sure if that's what they mean <------
     // pass.draw(6, 5); 
     pass.draw(6, pc.num_points); 
