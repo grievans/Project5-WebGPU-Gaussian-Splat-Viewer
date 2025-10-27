@@ -140,19 +140,98 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let b = unpack2x16float(vertex.pos_opacity[1]);
     // let viewPos = camera.view * vec4<f32>(a.x, a.y, b.x, 1.);
     // if (viewPos.z < )
-    var pos = camera.proj * camera.view * vec4<f32>(a.x, a.y, b.x, 1.);
+    let viewPos = camera.view * vec4<f32>(a.x, a.y, b.x, 1.);
+    
+    var pos = camera.proj * viewPos;
     pos /= pos.w; 
     // NDC -> 1.2x screen size = +/- 1.2
     // want [-1.2,1.2] unculled; and in front of the camera 
     if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f) {
         return;
     }
-    // splats[idx] = Splat(pos.xy, 0.05, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
+    
+    let rXY = unpack2x16float(vertex.rot[0]);
+    let rZW = unpack2x16float(vertex.rot[1]);
+    let sXY = unpack2x16float(vertex.scale[0]);
+    let sZW = unpack2x16float(vertex.scale[1]);
+
+    let r = rXY.x;
+    let x = rXY.y;
+    let y = rZW.x;
+    let z = rZW.y;
+    let R = mat3x3f(
+        1.f - 2.f * (y * y + z * z), 2.f * (x *y - r *z), 2.f * (x *z + r *y),
+        2.f * (x *y + r *z), 1.f - 2.f * (x *x +z *z), 2.f * (y *z - r *x),
+        2.f * (x *z - r *y), 2.f * (y *z + r *x), 1.f - 2.f * (x *x +y *y)
+        // 1.f - 2.f * (rXY.y * rXY.y + rZW.x * rZW.x), 2.f * (rXY.x *rXY.y - rZW.y *rZW.x), 2.f * (rXY.x *rZW.x + rZW.y *rXY.y),
+        // 2.f * (rXY.x *rXY.y + rZW.y *rZW.x), 1.f - 2.f * (rXY.x *rXY.x +rZW.x *rZW.x), 2.f * (rXY.y *rZW.x - rZW.y *rXY.x),
+        // 2.f * (rXY.x *rZW.x - rZW.y *rXY.y), 2.f * (rXY.y *rZW.x + rZW.y *rXY.x), 1.f - 2.f * (rXY.x *rXY.x +rXY.y *rXY.y)
+    );
+    var S = mat3x3f();
+    S[0][0] = sXY.x * renderSettings.gaussian_scaling;
+    S[1][1] = sXY.y * renderSettings.gaussian_scaling;
+    S[2][2] = sZW.x * renderSettings.gaussian_scaling;
+    
+    // TODO not probably important but is there a performance difference in doing R S S^T R^T vs RS = R S -> (RS)(RS)^T?
+    let M = S * R;
+    // let cov3d = R * S * transpose(S) * transpose(R);
+    let cov3d = transpose(M) * M;
+    // let cov3d = R * S * transpose(S) * transpose(R);
+    // let cov3d = R * S * transpose(S) * transpose(R);
+
+    // W = "viewing transformation"
+    //      = 3x3 version of camera.view?
+    // J = "Jacobian of the affine approximation of the projective transformation"
+    // T = W * J
+    let zSquared = viewPos.z * viewPos.z;
+    let W = mat3x3f(
+        camera.view[0].xyz,
+        camera.view[1].xyz,
+        camera.view[2].xyz
+    );
+    let J = mat3x3f(
+        camera.focal.x / viewPos.z, 0.f, 0.f,
+        0.f, camera.focal.y / viewPos.z, 0.f,
+        -(camera.focal.x * viewPos.x) / zSquared, -(camera.focal.y * viewPos.y) / zSquared, 0.f
+    );
+    let Vrk = mat3x3f(
+        cov3d[0][0], cov3d[0][1], cov3d[0][2],
+        cov3d[0][1], cov3d[1][1], cov3d[1][2],
+        cov3d[0][2], cov3d[1][2], cov3d[2][2]
+    );
+    // TODO is that all right? I don't totally get where it comes from^
+    let T = W * J;
+    // let cov2d = T * (Vrk) * transpose(T);
+    let cov2d = transpose(T) * transpose(Vrk) * T;
+    // TODO just following formula but don't get why they transpose the whole thing
+    
+    // addition ensuring numerical stability of inverse:
+    // cov[0][0] += 0.3f;
+    // cov[1][1] += 0.3f;
+    let cov = vec3f(cov2d[0][0] + 0.3f, cov2d[0][1], cov2d[1][1] + 0.3f);
+
+    let det = cov.x * cov.z - cov.y * cov.y;
+    if (det == 0.f) {
+    // if (det < 0.00001f) {
+        return;
+    }
+    let detInv = 1.f / det;
+    let conic = vec3f(cov.z * detInv, -cov.y * detInv, cov.x * detInv);
+
+    let mid = 0.5f * (cov.x + cov.z);
+    let root = sqrt(max(0.1, mid * mid - det));
+    let lambda1 = mid + root;
+    let lambda2 = mid - root;
+
+    let radius = ceil(3.f * sqrt(max(lambda1, lambda2)));
+
+
     // can I use sort_infos.keys_size in the above? I don't totally get how we want to set up the data in splats
     //  oh wait looking at the specification it returns the original value 
     let splatIdx = atomicAdd(&sort_infos.keys_size, 1u);
     // splats[splatIdx] = Splat(pos.xy, 0.05, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
-    splats[splatIdx] = Splat(pos.xy, 0.05 * renderSettings.gaussian_scaling, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
+    let shorterDir : f32 = max(camera.viewport.x, camera.viewport.y);
+    splats[splatIdx] = Splat(pos.xy, (radius / shorterDir), vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
     // atomicAdd(&sort_dispatch.dispatch_x, 1u);
     
     // TODO need these placeholders it seems like on this version of WebGPU to not have an error from the bindGroupLayout differing from the optimized-out form

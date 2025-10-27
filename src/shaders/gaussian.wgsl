@@ -36,7 +36,7 @@ fn vs_main(
         vec2f(1.f,-1.f),
         vec2f(1.f,1.f)
     );
-
+    
     out.position = vec4f(splats[iIdx].screenPos + splats[iIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
     
     
