@@ -53,6 +53,17 @@ export default async function init(
     cam_file: '',
   };
 
+  const renderSettingsData = new Float32Array(2);
+  renderSettingsData[0] = params.gaussian_multiplier;
+  renderSettingsData[1] = 0; // TODO what is sh_deg meant to be set to
+  const renderSettingsBuffer = device.createBuffer({
+    label: "render settings buffer", 
+    size: 8, 
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(renderSettingsBuffer, 0, renderSettingsData, 0, renderSettingsData.length);
+
+
   const pane = new Pane({
     title: 'Config',
     expanded: true,
@@ -74,6 +85,7 @@ export default async function init(
     });
   }
   {
+
     pane.addInput(params, 'ply_file', {
       view: 'file-input',
       lineCount: 3,
@@ -85,7 +97,7 @@ export default async function init(
       if (uploadedFile) {
         const pc = await load(uploadedFile, device);
         pointcloud_renderer = get_renderer_pointcloud(pc, device, presentation_format, camera.uniform_buffer);
-        gaussian_renderer = get_renderer_gaussian(pc, device, presentation_format, camera.uniform_buffer);
+        gaussian_renderer = get_renderer_gaussian(pc, device, presentation_format, camera.uniform_buffer, renderSettingsBuffer);
         renderers = {
           pointcloud: pointcloud_renderer,
           gaussian: gaussian_renderer,
@@ -122,6 +134,8 @@ export default async function init(
       {min: 0, max: 1.5}
     ).on('change', (e) => {
       //TODO: Bind constants to the gaussian renderer.
+      renderSettingsData[0] = params.gaussian_multiplier;
+      device.queue.writeBuffer(renderSettingsBuffer, 0, renderSettingsData, 0, renderSettingsData.length);
     });
   }
 

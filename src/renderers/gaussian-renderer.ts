@@ -28,6 +28,7 @@ export default function get_renderer(
   device: GPUDevice,
   presentation_format: GPUTextureFormat,
   camera_buffer: GPUBuffer,
+  renderSettingsBuffer: GPUBuffer,
 ): GaussianRenderer {
 
   const sorter = get_sorter(pc.num_points, device);
@@ -148,6 +149,13 @@ export default function get_renderer(
       {binding: 1, resource: { buffer: splatBuffer }},
     ],
   });
+  const renderSettings_bind_group = device.createBindGroup({
+    label: 'render settings bind group',
+    layout: preprocess_pipeline.getBindGroupLayout(3),
+    entries: [
+      {binding: 0, resource: { buffer: renderSettingsBuffer }},
+    ],
+  });
   
   // const splatBuffer // TODO
   const splat_bind_group = device.createBindGroup({
@@ -177,6 +185,7 @@ export default function get_renderer(
     pass.setBindGroup(0, camera_bind_group);
     pass.setBindGroup(1, gaussian_bind_group);
     pass.setBindGroup(2, sort_bind_group);
+    pass.setBindGroup(3, renderSettings_bind_group);
 
     // pass.draw(pc.num_points);
     pass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
@@ -220,6 +229,7 @@ export default function get_renderer(
       encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_dispatch_indirect_buffer, 0, 4);
       // TODO anything else to reset
       preprocess(encoder); // TODO is this the right order?
+      encoder.copyBufferToBuffer(sorter.sort_info_buffer, 0, indirectBuffer, 4, 4);
       // sorter.sort(encoder); // TODO reenable
       render(encoder, texture_view);
     },

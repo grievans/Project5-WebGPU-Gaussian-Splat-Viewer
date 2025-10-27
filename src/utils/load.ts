@@ -71,7 +71,7 @@ export async function load(file: string, device: GPUDevice) {
 
   // Spherical harmonic function coeffs
   const sh_buffer = device.createBuffer({
-    label: 'ply input 3d gaussians data buffer',
+    label: 'ply input spherical harmonics 3d gaussians data buffer',
     size: num_points * c_size_sh_coef,  // buffer size multiple of 4?
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
     mappedAtCreation: true,

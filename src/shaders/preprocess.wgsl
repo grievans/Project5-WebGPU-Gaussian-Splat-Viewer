@@ -84,6 +84,9 @@ var<storage, read_write> sort_indices : array<u32>;
 @group(2) @binding(3)
 var<storage, read_write> sort_dispatch: DispatchIndirect;
 
+@group(3) @binding(0)
+var<uniform> renderSettings: RenderSettings;
+
 /// reads the ith sh coef from the storage buffer 
 fn sh_coef(splat_idx: u32, c_idx: u32) -> vec3<f32> {
     //TODO: access your binded sh_coeff, see load.ts for how it is stored
@@ -148,7 +151,8 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // can I use sort_infos.keys_size in the above? I don't totally get how we want to set up the data in splats
     //  oh wait looking at the specification it returns the original value 
     let splatIdx = atomicAdd(&sort_infos.keys_size, 1u);
-    splats[splatIdx] = Splat(pos.xy, 0.05, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
+    // splats[splatIdx] = Splat(pos.xy, 0.05, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
+    splats[splatIdx] = Splat(pos.xy, 0.05 * renderSettings.gaussian_scaling, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
     // atomicAdd(&sort_dispatch.dispatch_x, 1u);
     
     // TODO need these placeholders it seems like on this version of WebGPU to not have an error from the bindGroupLayout differing from the optimized-out form
