@@ -1,5 +1,6 @@
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
+    @location(0) color: vec4f,
     //TODO: information passed from vertex shader to fragment shader
 };
 
@@ -37,10 +38,12 @@ fn vs_main(
     );
 
     out.position = vec4f(splats[iIdx].screenPos + splats[iIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
+    out.color = vec4f(splats[iIdx].color, 1.f);
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    return vec4<f32>(1.);
+    return in.color;
+    // return vec4<f32>(1.);
 }

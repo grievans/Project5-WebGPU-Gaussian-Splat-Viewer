@@ -47,10 +47,18 @@ export default function get_renderer(
   });
 
   // TODO
-  // const indirectBuffer = device.createBuffer({
+  const indirectData = new Uint32Array(4);
+  indirectData[0] = 6;
+  indirectData[1] = pc.num_points;
+  indirectData[2] = 0;
+  indirectData[3] = 0;
 
-  // });
-
+  const indirectBuffer = device.createBuffer({
+    label: "indirect draw buffer",
+    size: 16, // TODO 
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.INDIRECT
+  });
+  device.queue.writeBuffer(indirectBuffer, 0, indirectData, 0, indirectData.length);
   // ===============================================
   //    Create Compute Pipeline and Bind Groups
   // ===============================================
@@ -183,7 +191,8 @@ export default function get_renderer(
     // const uint32 = new Uint32Array(); // TODO figure out indirect
     // TODO use drawIndirect? not sure if that's what they mean <------
     // pass.draw(6, 5); 
-    pass.draw(6, pc.num_points); 
+    // pass.draw(6, pc.num_points); 
+    pass.drawIndirect(indirectBuffer, 0);
     // pass.draw(pc.num_points); 
     
     pass.end();
