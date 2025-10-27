@@ -38,6 +38,12 @@ fn vs_main(
     );
 
     out.position = vec4f(splats[iIdx].screenPos + splats[iIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
+    
+    
+    // out.color = vec4f(
+    //     select(0.f,1.f,iIdx < 272950),
+    //     select(0.f,1.f,iIdx == 272955),
+    //     select(0.f,1.f,iIdx >= 272956), 1.f);
     out.color = vec4f(splats[iIdx].color, 1.f);
     return out;
 }

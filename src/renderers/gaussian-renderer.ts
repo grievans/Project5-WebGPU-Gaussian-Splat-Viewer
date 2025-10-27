@@ -20,6 +20,7 @@ const createBuffer = (
   if (data) device.queue.writeBuffer(buffer, 0, data);
   return buffer;
 };
+// ^TODO maybe should swap to using that; forgot it was here. same functionality though
 
 
 export default function get_renderer(
@@ -37,6 +38,13 @@ export default function get_renderer(
 
   const nulling_data = new Uint32Array([0]);
 
+  const nullBuffer = createBuffer(
+    device, 
+    "null buffer", 
+    4, 
+    GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST, 
+    nulling_data
+  );
 
   const splatBuffer = device.createBuffer({
     label: 'splat data buffer',
@@ -52,7 +60,9 @@ export default function get_renderer(
   indirectData[1] = pc.num_points;
   indirectData[2] = 0;
   indirectData[3] = 0;
+  // console.log(pc.num_points);
 
+  // TODO should do mappedAtCreation thing I think? or wait we have to write later anyway so maybe fine
   const indirectBuffer = device.createBuffer({
     label: "indirect draw buffer",
     size: 16, // TODO 
@@ -152,7 +162,7 @@ export default function get_renderer(
   //    Command Encoder Functions
   // ===============================================
   // TODO not sure where this should be done exactly/if this is what's meant to be in this part
-  const preprocess = (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
+  const preprocess = (encoder: GPUCommandEncoder) => {
     const pass = encoder.beginComputePass({
       label: 'gaussian splat preprocess',
       // colorAttachments: [
@@ -169,7 +179,7 @@ export default function get_renderer(
     pass.setBindGroup(2, sort_bind_group);
 
     // pass.draw(pc.num_points);
-    pass.dispatchWorkgroups(pc.num_points / C.histogram_wg_size);
+    pass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
     // TODO make sure dispatch is done right
     pass.end();
   };
@@ -196,6 +206,7 @@ export default function get_renderer(
     // pass.draw(pc.num_points); 
     
     pass.end();
+    // console.log(splatBuffer);
   };
 
   // ===============================================
@@ -203,7 +214,12 @@ export default function get_renderer(
   // ===============================================
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
-      preprocess(encoder, texture_view); // TODO is this the right order?
+      // reset incrementing values
+      // apparently copying better than calling write from CPU side (https://webgpufundamentals.org/webgpu/lessons/webgpu-optimization.html)
+      encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_info_buffer, 0, 4);
+      encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_dispatch_indirect_buffer, 0, 4);
+      // TODO anything else to reset
+      preprocess(encoder); // TODO is this the right order?
       // sorter.sort(encoder); // TODO reenable
       render(encoder, texture_view);
     },

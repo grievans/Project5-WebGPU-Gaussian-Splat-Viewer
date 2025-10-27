@@ -140,8 +140,8 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     var pos = camera.proj * camera.view * vec4<f32>(a.x, a.y, b.x, 1.);
     pos /= pos.w; 
     // NDC -> 1.2x screen size = +/- 1.2
-    // want [-1.2,1.2] unculled
-    if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || abs(pos.z) > 1.2) {
+    // want [-1.2,1.2] unculled; and in front of the camera 
+    if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f) {
         return;
     }
     // splats[idx] = Splat(pos.xy, 0.05, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
@@ -153,12 +153,19 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     // TODO need these placeholders it seems like on this version of WebGPU to not have an error from the bindGroupLayout differing from the optimized-out form
     //  TODO make sure to remove when properly setting up use for them
-    sort_depths[0] = sort_depths[0];
-    sort_indices[0] = sort_indices[0];
-    atomicAdd(&sort_dispatch.dispatch_x, 0u);
+    sort_depths[splatIdx] = 0; // TODO
+    sort_indices[splatIdx] = splatIdx;
     // }
 
     let keys_per_dispatch = workgroupSize * sortKeyPerThread; 
     // increment DispatchIndirect.dispatchx each time you reach limit for one dispatch of keys
-    // ^TODO
+    if (splatIdx % keys_per_dispatch == 0) {
+        // ^TODO is that the right comparison?
+        // I guess it's splatIdx / keys_per_dispatch > dispatch_x?
+        //  can't directly check dispatch_x for that comparison though w/ being atomic
+        //  so modulo to check when at a multiple?
+        atomicAdd(&sort_dispatch.dispatch_x, 1u);
+        
+
+    }
 }
