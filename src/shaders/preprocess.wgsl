@@ -162,7 +162,8 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // NDC -> 1.2x screen size = +/- 1.2
     // want [-1.2,1.2] unculled; and in front of the camera 
     // TODO is that last one needed (far clip)? probably not relevant but not wrong?
-    if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f || pos.z > 1.f) {
+    if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f ) {
+    // if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f || pos.z > 1.f) {
         return;
     }
     
@@ -283,6 +284,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let quadDims = vec2f(radius, radius) / camera.viewport;
     // TODO pass in both dims? (or pass camera into vs and divide there). I think square pixel space might make more sense but I think might've been implied meant to be same NDC width height?
     // splats[splatIdx] = Splat(pos.xy, 0.01, vec3f(0.f,0.f,0.f), vec3f((radius / shorterDir),1.f,0.f));
+    // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,0.f));
     splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,1.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
@@ -295,8 +297,8 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     // depths in u32, I don't see a specified way we particularly need to do mapping
     //  further first so higher z
-    // sort_depths[splatIdx] = bitcast<u32>(100.f - pos.z); 
-    sort_depths[splatIdx] = bitcast<u32>(100.f - viewPos.z); 
+    sort_depths[splatIdx] = bitcast<u32>(1.f - pos.z); 
+    // sort_depths[splatIdx] = bitcast<u32>(100.f - viewPos.z); 
     // sort_depths[splatIdx] = bitcast<u32>(100.f * (1.f - pos.z)); 
     // sort_depths[splatIdx] = u32(100.f * (1.f - pos.z)); // TODO what range?
     // sort_depths[splatIdx] = 0; 

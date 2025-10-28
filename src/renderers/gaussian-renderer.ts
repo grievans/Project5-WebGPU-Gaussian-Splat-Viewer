@@ -50,7 +50,7 @@ export default function get_renderer(
   const splatBuffer = device.createBuffer({
     label: 'splat data buffer',
     // TODO size for 16bit
-    size: pc.num_points * 4*9,  // buffer size multiple of 4?
+    size: pc.num_points * 4*12,  // buffer size multiple of 4?
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     // mappedAtCreation: false,
   });
@@ -162,7 +162,8 @@ export default function get_renderer(
     label: 'splat bind group',
     layout: render_pipeline.getBindGroupLayout(0),
     entries: [
-      {binding: 0, resource: {buffer: splatBuffer}}
+      {binding: 0, resource: {buffer: splatBuffer}},
+      { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
     ],
   });
 

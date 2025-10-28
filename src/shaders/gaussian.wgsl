@@ -18,6 +18,8 @@ struct Splat {
 
 @group(0) @binding(0)
 var<storage,read> splats : array<Splat>;
+@group(0) @binding(1)
+var<storage,read> sort_indices : array<u32>;
 
 
 @vertex
@@ -27,6 +29,7 @@ fn vs_main(
 ) -> VertexOutput {
     //TODO: reconstruct 2D quad based on information from splat, pass 
     var out: VertexOutput;
+    let sIdx = sort_indices[iIdx];
     // out.position = vec4<f32>(1. ,1. , 0., 1.);
     const quadVerts = array<vec2f,6>(
         vec2f(-1.f,-1.f),
@@ -37,14 +40,21 @@ fn vs_main(
         vec2f(1.f,1.f)
     );
     
-    out.position = vec4f(splats[iIdx].screenPos + splats[iIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
+    out.position = vec4f(splats[sIdx].screenPos + splats[sIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
     
     
     // out.color = vec4f(
     //     select(0.f,1.f,iIdx < 272950),
     //     select(0.f,1.f,iIdx == 272955),
     //     select(0.f,1.f,iIdx >= 272956), 1.f);
-    out.color = vec4f(splats[iIdx].color, 1.f);
+    // out.color = vec4f(1.f,1.f,0.f, 1.f);
+    if (all(splats[sIdx].color == vec3f(0.f,0.f,0.f))) {
+
+        out.color = vec4f(vec3f(1.f,0.f,0.f), 1.f);
+    } else {
+        out.color = vec4f(splats[sIdx].color, 1.f);
+
+    }
     return out;
 }
 
