@@ -296,9 +296,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // depths in u32, I don't see a specified way we particularly need to do mapping
     //  further first so higher z
     // sort_depths[splatIdx] = bitcast<u32>(100.f - pos.z); 
+    sort_depths[splatIdx] = bitcast<u32>(100.f - viewPos.z); 
     // sort_depths[splatIdx] = bitcast<u32>(100.f * (1.f - pos.z)); 
     // sort_depths[splatIdx] = u32(100.f * (1.f - pos.z)); // TODO what range?
-    sort_depths[splatIdx] = 0; 
+    // sort_depths[splatIdx] = 0; 
     sort_indices[splatIdx] = splatIdx;
     // }
 

@@ -223,18 +223,34 @@ export default function get_renderer(
   // ===============================================
   //    Return Render Object
   // ===============================================
+  
   return {
     frame: (encoder: GPUCommandEncoder, texture_view: GPUTextureView) => {
       // reset incrementing values
       // apparently copying better than calling write from CPU side (https://webgpufundamentals.org/webgpu/lessons/webgpu-optimization.html)
       encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_info_buffer, 0, 4);
       encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_dispatch_indirect_buffer, 0, 4);
+      // encoder.copyBufferToBuffer(indirectBuffer, 0, sorter.sort_dispatch_indirect_buffer, 0, 4);
+      
       // TODO anything else to reset
       preprocess(encoder); // TODO is this the right order?
-      sorter.sort(encoder); // TODO reenable
+      // encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_dispatch_indirect_buffer, 0, 4);
+      // const arr = new Uint32Array([30]);
+      // device.queue.writeBuffer(sorter.sort_info_buffer, 0, arr, 0, arr.length);
+      // encoder.copyBufferToBuffer(nullBuffer2, 0, sorter.sort_info_buffer, 0, 4);
+
+      // console.log(sorter.sort_dispatch_indirect_buffer);
+
+
+      
+      
+
+      // OH Might just be this out of date computer/webgpu version has issues running it?
+      //  but weird it just freezes/slows to nothing rather than giving an error
+      sorter.sort(encoder); // TODO reenable 
       // TODO sort causes whole thing to freeze atm dunno why
       encoder.copyBufferToBuffer(sorter.sort_info_buffer, 0, indirectBuffer, 4, 4);
-
+      // device.queue.
 
       render(encoder, texture_view);
     },
