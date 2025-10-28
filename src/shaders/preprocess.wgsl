@@ -65,6 +65,17 @@ struct Splat {
     color: vec3f,
 };
 
+struct SHBufferData {
+  //3 * c_size_float  // x y z (position)
+  //+ c_size_float    // opacity
+  //+ 4 * c_size_float  // rotation
+  //+ 4 * c_size_float  //scale
+    pos: vec3f,
+    opacity: f32,
+    rotation: vec4f,
+    scale: vec4f
+}
+
 //TODO: bind your data here
 @group(0) @binding(0)
 var<uniform> camera: CameraUniforms;
@@ -87,9 +98,13 @@ var<storage, read_write> sort_dispatch: DispatchIndirect;
 @group(3) @binding(0)
 var<uniform> renderSettings: RenderSettings;
 
+@group(4) @binding(0)
+var<uniform> sh_coeff: SHBufferData;
+
 /// reads the ith sh coef from the storage buffer 
 fn sh_coef(splat_idx: u32, c_idx: u32) -> vec3<f32> {
     //TODO: access your binded sh_coeff, see load.ts for how it is stored
+
     return vec3<f32>(0.0);
 }
 
@@ -266,8 +281,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // splats[splatIdx] = Splat(pos.xy, 0.05, vec3f(0.f,0.f,0.f), vec3f(1.f,0.f,0.f));
     // let shorterDir : f32 = min(camera.viewport.x, camera.viewport.y);
     let quadDims = vec2f(radius, radius) / camera.viewport;
+    // TODO pass in both dims? (or pass camera into vs and divide there). I think square pixel space might make more sense but I think might've been implied meant to be same NDC width height?
     // splats[splatIdx] = Splat(pos.xy, 0.01, vec3f(0.f,0.f,0.f), vec3f((radius / shorterDir),1.f,0.f));
-    splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,1.f));
+    splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
+    // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,1.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
     // splats[splatIdx] = Splat(pos.xy, 10.f / camera.viewport.x, vec3f(0.f,0.f,0.f), vec3f(quadDims.x,1.f,0.f));
     // splats[splatIdx] = Splat(pos.xy, (radius / shorterDir), vec3f(0.f,0.f,0.f), vec3f(radius / 10.f,1.f,0.f));
@@ -275,7 +292,13 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     // TODO need these placeholders it seems like on this version of WebGPU to not have an error from the bindGroupLayout differing from the optimized-out form
     //  TODO make sure to remove when properly setting up use for them
-    sort_depths[splatIdx] = 0; // TODO
+    
+    // depths in u32, I don't see a specified way we particularly need to do mapping
+    //  further first so higher z
+    // sort_depths[splatIdx] = bitcast<u32>(100.f - pos.z); 
+    // sort_depths[splatIdx] = bitcast<u32>(100.f * (1.f - pos.z)); 
+    // sort_depths[splatIdx] = u32(100.f * (1.f - pos.z)); // TODO what range?
+    sort_depths[splatIdx] = 0; 
     sort_indices[splatIdx] = splatIdx;
     // }
 

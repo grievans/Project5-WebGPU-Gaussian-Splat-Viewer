@@ -187,6 +187,8 @@ export default function get_renderer(
     pass.setBindGroup(2, sort_bind_group);
     pass.setBindGroup(3, renderSettings_bind_group);
 
+    // TODO bind pc.sh_buffer... <----------
+
     // pass.draw(pc.num_points);
     pass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
     // TODO make sure dispatch is done right
@@ -229,8 +231,11 @@ export default function get_renderer(
       encoder.copyBufferToBuffer(nullBuffer, 0, sorter.sort_dispatch_indirect_buffer, 0, 4);
       // TODO anything else to reset
       preprocess(encoder); // TODO is this the right order?
+      sorter.sort(encoder); // TODO reenable
+      // TODO sort causes whole thing to freeze atm dunno why
       encoder.copyBufferToBuffer(sorter.sort_info_buffer, 0, indirectBuffer, 4, 4);
-      // sorter.sort(encoder); // TODO reenable
+
+
       render(encoder, texture_view);
     },
     camera_buffer,
