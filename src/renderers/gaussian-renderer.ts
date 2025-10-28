@@ -147,6 +147,7 @@ export default function get_renderer(
     entries: [
       {binding: 0, resource: { buffer: pc.gaussian_3d_buffer }},
       {binding: 1, resource: { buffer: splatBuffer }},
+      {binding: 2, resource: { buffer: pc.sh_buffer}}
     ],
   });
   const renderSettings_bind_group = device.createBindGroup({

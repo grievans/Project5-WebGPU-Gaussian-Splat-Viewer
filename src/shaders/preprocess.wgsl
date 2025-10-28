@@ -65,16 +65,9 @@ struct Splat {
     color: vec3f,
 };
 
-struct SHBufferData {
-  //3 * c_size_float  // x y z (position)
-  //+ c_size_float    // opacity
-  //+ 4 * c_size_float  // rotation
-  //+ 4 * c_size_float  //scale
-    pos: vec3f,
-    opacity: f32,
-    rotation: vec4f,
-    scale: vec4f
-}
+// struct SHBufferData {
+//     data: array<vec3f>
+// }
 
 //TODO: bind your data here
 @group(0) @binding(0)
@@ -84,6 +77,9 @@ var<uniform> camera: CameraUniforms;
 var<storage,read> gaussians : array<Gaussian>;
 @group(1) @binding(1)
 var<storage,read_write> splats : array<Splat>;
+
+@group(1) @binding(2)
+var<storage,read> sh_buffer: array<u32>;
 
 
 @group(2) @binding(0)
@@ -98,14 +94,25 @@ var<storage, read_write> sort_dispatch: DispatchIndirect;
 @group(3) @binding(0)
 var<uniform> renderSettings: RenderSettings;
 
-@group(4) @binding(0)
-var<uniform> sh_coeff: SHBufferData;
-
 /// reads the ith sh coef from the storage buffer 
 fn sh_coef(splat_idx: u32, c_idx: u32) -> vec3<f32> {
     //TODO: access your binded sh_coeff, see load.ts for how it is stored
-
-    return vec3<f32>(0.0);
+    // 3 * 16 * (2byte/4byte) = 24 indices per splat?
+    // want to get set of 3 f16s from that
+    // c_idx : [0,16] -> [0,23]
+    // c_idx * 3 / 2
+    // offset by 1/2 when c_idx odd
+    let arrIdx = splat_idx * 24 + c_idx * 3 / 2;
+    let c1 = unpack2x16float(sh_buffer[arrIdx]);
+    let c2 = unpack2x16float(sh_buffer[arrIdx + 1]);
+    if (c_idx % 2 == 1) {
+        // odd
+        return vec3<f32>(c1.y, c2.x, c2.y);
+    } else {
+        // even
+        return vec3<f32>(c1.x, c1.y, c2.x);
+    }
+    // return vec3<f32>(0.0);
 }
 
 // spherical harmonics evaluation with Condon–Shortley phase
@@ -148,14 +155,14 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     if (idx >= arrayLength(&gaussians)) {
         return;
     }
-    // TODO mostly placeholder
     // TODO culling, conic etc.
     let vertex = gaussians[idx];
     let a = unpack2x16float(vertex.pos_opacity[0]);
     let b = unpack2x16float(vertex.pos_opacity[1]);
     // let viewPos = camera.view * vec4<f32>(a.x, a.y, b.x, 1.);
     // if (viewPos.z < )
-    let viewPos = camera.view * vec4<f32>(a.x, a.y, b.x, 1.);
+    let worldPos = vec4<f32>(a.x, a.y, b.x, 1.);
+    let viewPos = camera.view * worldPos;
     
     var pos = camera.proj * viewPos;
     pos /= pos.w; 
@@ -285,7 +292,13 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // TODO pass in both dims? (or pass camera into vs and divide there). I think square pixel space might make more sense but I think might've been implied meant to be same NDC width height?
     // splats[splatIdx] = Splat(pos.xy, 0.01, vec3f(0.f,0.f,0.f), vec3f((radius / shorterDir),1.f,0.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,0.f));
-    splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
+
+    // TODO direction right?
+    let cameraPos = camera.view_inv[3].xyz; 
+    // surely sh_deg should just be passed in from renderSettings as a u32 already but it's not set up that way so think can just cast
+    let color = computeColorFromSH(normalize(worldPos.xyz - cameraPos), idx, u32(renderSettings.sh_deg));
+    splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), conic, color);
+    // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,1.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
     // splats[splatIdx] = Splat(pos.xy, 10.f / camera.viewport.x, vec3f(0.f,0.f,0.f), vec3f(quadDims.x,1.f,0.f));
@@ -297,8 +310,8 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     
     // depths in u32, I don't see a specified way we particularly need to do mapping
     //  further first so higher z
-    sort_depths[splatIdx] = bitcast<u32>(1.f - pos.z); 
-    // sort_depths[splatIdx] = bitcast<u32>(100.f - viewPos.z); 
+    // sort_depths[splatIdx] = bitcast<u32>(1.f - pos.z); 
+    sort_depths[splatIdx] = bitcast<u32>(100.f - viewPos.z); 
     // sort_depths[splatIdx] = bitcast<u32>(100.f * (1.f - pos.z)); 
     // sort_depths[splatIdx] = u32(100.f * (1.f - pos.z)); // TODO what range?
     // sort_depths[splatIdx] = 0; 

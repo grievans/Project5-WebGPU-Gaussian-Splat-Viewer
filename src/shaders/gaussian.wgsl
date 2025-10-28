@@ -48,13 +48,13 @@ fn vs_main(
     //     select(0.f,1.f,iIdx == 272955),
     //     select(0.f,1.f,iIdx >= 272956), 1.f);
     // out.color = vec4f(1.f,1.f,0.f, 1.f);
-    if (all(splats[sIdx].color == vec3f(0.f,0.f,0.f))) {
+    // if (all(splats[sIdx].color == vec3f(0.f,0.f,0.f))) {
 
-        out.color = vec4f(vec3f(1.f,0.f,0.f), 1.f);
-    } else {
+        // out.color = vec4f(vec3f(1.f,0.f,0.f), 1.f);
+    // } else {
         out.color = vec4f(splats[sIdx].color, 1.f);
 
-    }
+    // }
     return out;
 }
 
