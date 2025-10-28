@@ -126,7 +126,20 @@ export default function get_renderer(
     fragment: {
       module: render_shader,
       entryPoint: 'fs_main',
-      targets: [{ format: presentation_format }],
+      targets: [{ format: presentation_format,
+        blend: {
+          color: {
+            operation: "add",
+            srcFactor: "one",
+            dstFactor: "one-minus-src-alpha"
+          },
+          alpha: {
+            operation: "add",
+            srcFactor: "one",
+            dstFactor: "one-minus-src-alpha"
+          }
+        }
+       }],
     },
     // primitive: {
     //   topology: 'point-list',
@@ -165,6 +178,8 @@ export default function get_renderer(
     entries: [
       {binding: 0, resource: {buffer: splatBuffer}},
       { binding: 1, resource: { buffer: sorter.ping_pong[0].sort_indices_buffer } },
+      {binding: 2, resource: { buffer: camera_buffer }}
+
     ],
   });
 
@@ -189,7 +204,6 @@ export default function get_renderer(
     pass.setBindGroup(2, sort_bind_group);
     pass.setBindGroup(3, renderSettings_bind_group);
 
-    // TODO bind pc.sh_buffer... <----------
 
     // pass.draw(pc.num_points);
     pass.dispatchWorkgroups(Math.ceil(pc.num_points / C.histogram_wg_size));
@@ -210,12 +224,7 @@ export default function get_renderer(
     pass.setPipeline(render_pipeline);
     // pass.setBindGroup(0, camera_bind_group);
     pass.setBindGroup(0, splat_bind_group);
-    
-    // const uint32 = new Uint32Array(); // TODO figure out indirect
-    // TODO use drawIndirect? not sure if that's what they mean <------
-    // pass.draw(6, 5); 
-    // pass.draw(6, pc.num_points); 
-    pass.drawIndirect(indirectBuffer, 0);
+        pass.drawIndirect(indirectBuffer, 0);
     // pass.draw(pc.num_points); 
     
     pass.end();
