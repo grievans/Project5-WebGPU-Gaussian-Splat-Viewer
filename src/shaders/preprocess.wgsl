@@ -59,10 +59,14 @@ struct Splat {
     //TODO: store information for 2D splat rendering
 
     // TODO optimize to 16 bit XC
-    screenPos: vec2f, // in NDC
-    maxRadius: f32,
-    conic: vec3f,
-    color: vec4f,
+    // screenPos: vec2f, // in NDC
+    // maxRadius: f32,
+    // conic: vec3f,
+    // color: vec4f,
+
+    screenPos: u32,
+    maxRadiusConic: array<u32,2>,
+    colorOpacity: array<u32,2>
 };
 
 // struct SHBufferData {
@@ -297,7 +301,19 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let cameraPos = camera.view_inv[3].xyz; 
     // surely sh_deg should just be passed in from renderSettings as a u32 already but it's not set up that way so think can just cast
     let color = computeColorFromSH(normalize(worldPos.xyz - cameraPos), idx, u32(renderSettings.sh_deg));
-    splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), conic, vec4f(color, b.y));
+    // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), conic, vec4f(color, b.y));
+
+    
+    splats[splatIdx] = Splat(
+        pack2x16float(pos.xy), 
+        array<u32,2>(
+            pack2x16float(vec2f(max(quadDims.x, quadDims.y), conic.x)),
+            pack2x16float(conic.yz)
+        ),
+        array<u32,2>(
+            pack2x16float(color.xy),
+            pack2x16float(vec2f(color.z, b.y))
+        ));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,1.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(quadDims.x,quadDims.y,0.f));

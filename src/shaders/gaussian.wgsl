@@ -9,14 +9,18 @@ struct VertexOutput {
 
 struct Splat {
     //TODO: information defined in preprocess compute shader
-    screenPos: vec2f, // TODO 16bit instead? in NDC
-    maxRadius: f32,
-    // TODO what do I need here
-    // ^ I think quad size comes from maxRadius (treat like a square in NDC)
-    // also need conic and color info
-    conic: vec3f, // might make sense to just do mat2x2 instead? or again should I do some 16bit version
-    // TODO think will just use standard 32 bit for now then do the optimization later since extra credit?
-    color: vec4f,
+    // screenPos: vec2f, // TODO 16bit instead? in NDC
+    // maxRadius: f32,
+    // // TODO what do I need here
+    // // ^ I think quad size comes from maxRadius (treat like a square in NDC)
+    // // also need conic and color info
+    // conic: vec3f, // might make sense to just do mat2x2 instead? or again should I do some 16bit version
+    // // TODO think will just use standard 32 bit for now then do the optimization later since extra credit?
+    // color: vec4f,
+
+    screenPos: u32,
+    maxRadiusConic: array<u32,2>,
+    colorOpacity: array<u32,2>
 };
 
 struct CameraUniforms {
@@ -52,8 +56,16 @@ fn vs_main(
         vec2f(1.f,-1.f),
         vec2f(1.f,1.f)
     );
-    
-    out.position = vec4f(splats[sIdx].screenPos + splats[sIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
+    // out.position = vec4f(splats[sIdx].screenPos + splats[sIdx].maxRadius * quadVerts[vIdx], 0.f, 1.f);
+
+    let screenPos = vec2<f32>(unpack2x16float(splats[sIdx].screenPos));
+
+    let radiusConicX = vec2<f32>(unpack2x16float(splats[sIdx].maxRadiusConic[0]));
+    let conicYZ = vec2<f32>(unpack2x16float(splats[sIdx].maxRadiusConic[1]));
+    let cXY = vec2<f32>(unpack2x16float(splats[sIdx].colorOpacity[0]));
+    let cZW = vec2<f32>(unpack2x16float(splats[sIdx].colorOpacity[1]));
+
+    out.position = vec4f(screenPos + radiusConicX.x * quadVerts[vIdx], 0.f, 1.f);
     
     
     // out.color = vec4f(
@@ -65,13 +77,21 @@ fn vs_main(
 
         // out.color = vec4f(vec3f(1.f,0.f,0.f), 1.f);
     // } else {
-    let d = (out.position.xy - splats[sIdx].screenPos) * vec2f(-camera.viewport.x, camera.viewport.y);
-    
+
+    // let d = (out.position.xy - splats[sIdx].screenPos) * vec2f(-camera.viewport.x, camera.viewport.y);
+
     // out.color = vec4f(d.x, d.y, 0.f, 1.f);
-    out.color = vec4f(splats[sIdx].color.xyz, 1.f / (1.f + exp(-splats[sIdx].color.w)));
+    // out.color = vec4f(splats[sIdx].color.xyz, 1.f / (1.f + exp(-splats[sIdx].color.w)));
     // out.center = splats[sIdx].screenPos;
+    // out.offset = d;
+    // out.conic = splats[sIdx].conic;
+
+
+    let d = (out.position.xy - screenPos) * vec2f(-camera.viewport.x, camera.viewport.y);
+    
+    out.color = vec4f(cXY.x, cXY.y, cZW.x, 1.f / (1.f + exp(-cZW.y)));
     out.offset = d;
-    out.conic = splats[sIdx].conic;
+    out.conic = vec3f(radiusConicX.y, conicYZ.x, conicYZ.y);
     // }
     return out;
 }
