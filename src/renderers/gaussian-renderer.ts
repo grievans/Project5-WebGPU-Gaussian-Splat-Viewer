@@ -50,7 +50,7 @@ export default function get_renderer(
   const splatBuffer = device.createBuffer({
     label: 'splat data buffer',
     // TODO size for 16bit
-    size: pc.num_points * 4*12,  // buffer size multiple of 4?
+    size: pc.num_points * 4*5,  // buffer size multiple of 4?
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
     // mappedAtCreation: false,
   });

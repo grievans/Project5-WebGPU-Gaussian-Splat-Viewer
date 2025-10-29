@@ -173,8 +173,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // NDC -> 1.2x screen size = +/- 1.2
     // want [-1.2,1.2] unculled; and in front of the camera 
     // TODO is that last one needed (far clip)? probably not relevant but not wrong?
-    if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f ) {
-    // if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f || pos.z > 1.f) {
+    if (abs(pos.x) > 1.2 || abs(pos.y) > 1.2 || pos.z < 0.f || pos.z > 1.f) {
         return;
     }
     
@@ -282,7 +281,7 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     let mid = 0.5f * (cov.x + cov.z);
     let root = sqrt(max(0.01, mid * mid - det));
     let lambda1 = mid + root;
-    let lambda2 = mid - root; // TODO isn't there no reason to do this? sqrt >= 0 in this right? unless the below is also supposed to be abs of these or something
+    let lambda2 = mid - root; // isn't there no reason to do this? sqrt >= 0 in this right? unless the below is also supposed to be abs of these or something
 
     let radius = ceil(3.f * sqrt(max(lambda1, lambda2)));
 
@@ -294,10 +293,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // let shorterDir : f32 = min(camera.viewport.x, camera.viewport.y);
     let quadDims = vec2f(radius, radius) / camera.viewport;
     // TODO pass in both dims? (or pass camera into vs and divide there). I think square pixel space might make more sense but I think might've been implied meant to be same NDC width height?
+    //  ^For now keeping it square in NDC (= rectangle on screen), passing in both (or passing in pixel space then doing viewport division in vertex shader) might be ideal but I'm content to leave it as is
     // splats[splatIdx] = Splat(pos.xy, 0.01, vec3f(0.f,0.f,0.f), vec3f((radius / shorterDir),1.f,0.f));
     // splats[splatIdx] = Splat(pos.xy, max(quadDims.x, quadDims.y), vec3f(0.f,0.f,0.f), vec3f(1.f,1.f,0.f));
 
-    // TODO direction right?
     let cameraPos = camera.view_inv[3].xyz; 
     // surely sh_deg should just be passed in from renderSettings as a u32 already but it's not set up that way so think can just cast
     let color = computeColorFromSH(normalize(worldPos.xyz - cameraPos), idx, u32(renderSettings.sh_deg));
@@ -321,11 +320,10 @@ fn preprocess(@builtin(global_invocation_id) gid: vec3<u32>, @builtin(num_workgr
     // splats[splatIdx] = Splat(pos.xy, (radius / shorterDir), vec3f(0.f,0.f,0.f), vec3f(radius / 10.f,1.f,0.f));
     // atomicAdd(&sort_dispatch.dispatch_x, 1u);
     
-    // TODO need these placeholders it seems like on this version of WebGPU to not have an error from the bindGroupLayout differing from the optimized-out form
-    //  TODO make sure to remove when properly setting up use for them
     
     // depths in u32, I don't see a specified way we particularly need to do mapping
     //  further first so higher z
+    // I think I could do a different range but the one I'm using right now shows fine so not touching at the moment
     // sort_depths[splatIdx] = bitcast<u32>(1.f - pos.z); 
     sort_depths[splatIdx] = bitcast<u32>(100.f - viewPos.z); 
     // sort_depths[splatIdx] = bitcast<u32>(100.f * (1.f - pos.z)); 

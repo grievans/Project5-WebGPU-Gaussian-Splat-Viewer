@@ -18,6 +18,7 @@ struct Splat {
     // // TODO think will just use standard 32 bit for now then do the optimization later since extra credit?
     // color: vec4f,
 
+    // I am uncertain in regards to the XC if they want packed f16s just for the passing or if the calculation should all be in f16 (assume the latter), think I could do the latter w/o too much work but will not bother for now so can work on writeup
     screenPos: u32,
     maxRadiusConic: array<u32,2>,
     colorOpacity: array<u32,2>
